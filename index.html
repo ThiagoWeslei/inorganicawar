@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>⚗️ Duelo Químico — Ácidos vs Bases</title>
+  <meta name="description" content="Jogo educativo multiplayer 1v1 de química (ácidos e bases) via WebRTC/PeerJS.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Sora:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Camada de flash (feedback visual de dano/acerto/falha) -->
+  <div id="flash" aria-hidden="true"></div>
+
+  <!-- ============ TELA: MENU ============ -->
+  <main id="screen-menu" class="screen active">
+    <header class="logo">
+      <div class="logo-icon" aria-hidden="true">⚗️</div>
+      <h1>Duelo <span class="grad">Químico</span></h1>
+      <p class="tagline">Ácidos &amp; Bases · Batalha 1v1 online (P2P via WebRTC)</p>
+      <div class="ph-strip" role="img" aria-label="Escala de pH de 0 a 14">
+        <div class="ph-bar"></div>
+        <div class="ph-ticks"><span>0</span><span>ácido</span><span>7</span><span>base</span><span>14</span></div>
+      </div>
+    </header>
+
+    <section class="card">
+      <label class="field-label" for="input-nome">Nome de jogador</label>
+      <input id="input-nome" type="text" maxlength="20" placeholder="Ex.: Marie Curie" autocomplete="off">
+    </section>
+
+    <div class="menu-grid">
+      <section class="card">
+        <h2>🧪 Criar sala</h2>
+        <p class="hint">Defina um ID (ou gere um aleatório) e envie para o oponente.</p>
+        <div class="row">
+          <input id="input-sala-criar" type="text" maxlength="32" placeholder="ex.: sala-quimica-123" autocomplete="off">
+          <button id="btn-gerar-id" class="btn ghost" type="button" title="Gerar ID aleatório" aria-label="Gerar ID aleatório">🎲</button>
+        </div>
+        <button id="btn-criar" class="btn primary" type="button">Criar sala</button>
+      </section>
+
+      <section class="card">
+        <h2>🔗 Entrar em sala</h2>
+        <p class="hint">Digite o ID da sala criada pelo adversário.</p>
+        <input id="input-sala-entrar" type="text" maxlength="32" placeholder="ID da sala" autocomplete="off">
+        <button id="btn-entrar" class="btn secondary" type="button">Entrar na sala</button>
+      </section>
+    </div>
+
+    <p id="menu-status" class="status" role="alert"></p>
+
+    <details class="card regras">
+      <summary>📜 Como jogar</summary>
+      <ul>
+        <li>Digite o nome de um <b>ácido</b> ou de uma <b>base</b> válidos para atacar (sem se preocupar com acentos ou maiúsculas).</li>
+        <li>Dano por dificuldade do composto: <b class="tag-facil">Fácil 10</b> · <b class="tag-medio">Médio 15</b> · <b class="tag-dificil">Difícil 20</b>.</li>
+        <li><b class="grad">Neutralização:</b> responda um ácido com uma base (ou vice-versa) e cause <b>×1,5 de dano</b> — ácido + base → sal + água!</li>
+        <li>Composto inválido = <b>ataque falhou</b> (0 de dano e você perde o turno).</li>
+        <li>Você <b>não pode repetir</b> um composto que já usou na partida.</li>
+        <li>Vence quem zerar os <b>100 HP</b> do oponente.</li>
+      </ul>
+    </details>
+  </main>
+
+  <!-- ============ TELA: LOBBY (aguardando oponente) ============ -->
+  <main id="screen-lobby" class="screen">
+    <section class="card lobby-card">
+      <div class="loader" aria-hidden="true"><span></span><span></span><span></span></div>
+      <h2 id="lobby-titulo">Sala criada!</h2>
+      <p class="hint">Envie este ID para o seu oponente:</p>
+      <div class="codigo-box">
+        <code id="lobby-codigo">—</code>
+        <button id="btn-copiar" class="btn ghost" type="button">📋 Copiar</button>
+      </div>
+      <p id="lobby-status" class="status info" aria-live="polite">Aguardando oponente…</p>
+      <button id="btn-cancelar" class="btn danger-ghost" type="button">Cancelar</button>
+    </section>
+  </main>
+
+  <!-- ============ TELA: BATALHA ============ -->
+  <main id="screen-batalha" class="screen">
+
+    <div class="versus-grid">
+      <section class="player-card me" id="card-eu">
+        <div class="p-head"><span class="avatar" aria-hidden="true">🧪</span><h3 id="nome-eu">Você</h3></div>
+        <div class="hp-row"><span class="hp-num" id="hp-eu-num">100</span><span class="hp-max">/ 100 HP</span></div>
+        <div class="hp-bar"><div class="hp-fill" id="hp-eu-fill"></div></div>
+      </section>
+
+      <div class="ph-divider" aria-hidden="true"><span class="vs-badge">VS</span></div>
+
+      <section class="player-card opp" id="card-opp">
+        <div class="p-head"><span class="avatar" aria-hidden="true">⚗️</span><h3 id="nome-opp">Oponente</h3></div>
+        <div class="hp-row"><span class="hp-num" id="hp-opp-num">100</span><span class="hp-max">/ 100 HP</span></div>
+        <div class="hp-bar"><div class="hp-fill" id="hp-opp-fill"></div></div>
+        <div class="dmg-layer" id="dmg-layer" aria-hidden="true"></div>
+      </section>
+    </div>
+
+    <div id="turno-banner" class="turno" aria-live="polite">Preparando…</div>
+    <p id="dica-neutra" class="dica" aria-live="polite"></p>
+
+    <div class="ataque-zone">
+      <input id="input-ataque" type="text" maxlength="40" placeholder="Digite um ácido ou base… (ex.: Ácido Sulfúrico)" autocomplete="off" spellcheck="false" aria-label="Nome do composto para atacar">
+      <button id="btn-ataque" class="btn primary" type="button">⚡ Atacar</button>
+    </div>
+    <p id="erro-ataque" class="erro-inline" aria-live="polite"></p>
+
+    <div class="batalha-grid">
+      <section class="card log-card">
+        <h4>📖 Log de combate</h4>
+        <ul id="log-lista" aria-live="polite"></ul>
+      </section>
+      <aside class="card side-card">
+        <h4>🚫 Compostos que você já usou</h4>
+        <div id="palavras-usadas" class="chips"><span class="hint">Nenhum ainda.</span></div>
+        <button id="btn-guia" class="btn secondary" type="button">📚 Guia de compostos</button>
+      </aside>
+    </div>
+
+    <footer class="batalha-footer">
+      <span class="hint">Sala: <code id="sala-atual">—</code></span>
+      <div class="row">
+        <button id="btn-som" class="btn ghost" type="button" title="Ativar ou silenciar efeitos sonoros">🔊</button>
+        <button id="btn-sair" class="btn danger-ghost" type="button">Sair da partida</button>
+      </div>
+    </footer>
+  </main>
+
+  <!-- ============ OVERLAY: FIM DE JOGO ============ -->
+  <div id="overlay-fim" class="overlay" hidden>
+    <div class="overlay-card">
+      <h2 id="fim-titulo">🏆 Vitória!</h2>
+      <p id="fim-msg"></p>
+      <div class="row center">
+        <button id="btn-revanche" class="btn primary" type="button">🔄 Pedir revanche</button>
+        <button id="btn-menu-fim" class="btn ghost" type="button">🏠 Voltar ao menu</button>
+      </div>
+      <p id="rev-status" class="status info" aria-live="polite"></p>
+    </div>
+  </div>
+
+  <!-- ============ MODAL: GUIA DE COMPOSTOS ============ -->
+  <div id="modal-guia" class="overlay" hidden>
+    <div class="overlay-card guia-card">
+      <div class="row between">
+        <h2>📚 Guia de compostos</h2>
+        <button id="btn-fechar-guia" class="btn ghost" type="button" aria-label="Fechar guia">✖</button>
+      </div>
+      <p class="hint">Dano: Fácil 10 · Médio 15 · Difícil 20 — Neutralização multiplica por 1,5.</p>
+      <div id="guia-conteudo" class="guia-grid"></div>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.2/peerjs.min.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
