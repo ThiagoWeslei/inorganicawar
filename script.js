@@ -11,7 +11,6 @@
      Cada lado aplica o mesmo dano recebido na mensagem, então
      os HPs nunca divergem.
 ============================================================ */
-
 /* ============================================================
    1) DICIONÁRIO QUÍMICO (fonte de verdade da validação)
    Para adicionar compostos, basta incluir aqui — o guia e a
