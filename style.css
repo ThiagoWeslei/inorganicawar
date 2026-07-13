@@ -430,8 +430,10 @@ input[type="text"]:disabled { opacity: .5; }
   letter-spacing: .06em;
 }
 
-/* Números de dano flutuantes */
-.dmg-layer { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+/* Números de dano flutuantes (card-opp) e de cura flutuantes (card-eu) */
+.dmg-layer,
+.cura-layer { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+
 .dmg-float {
   position: absolute;
   top: 42%;
@@ -446,6 +448,17 @@ input[type="text"]:disabled { opacity: .5; }
   color: var(--ouro);
   font-size: 2rem;
   text-shadow: 0 2px 12px rgba(255, 197, 61, .7);
+}
+/* Número de cura (verde, no card do próprio jogador) */
+.cura-float {
+  position: absolute;
+  top: 38%;
+  font-family: var(--f-mono);
+  font-weight: 700;
+  font-size: 1.6rem;
+  color: var(--neutro);
+  text-shadow: 0 2px 14px rgba(47, 212, 160, .70);
+  animation: sobe 1.1s ease-out forwards;
 }
 @keyframes sobe {
   from { opacity: 1; transform: translateY(0) scale(.85); }
@@ -680,6 +693,7 @@ li.log-info  { border-left-color: var(--base2); }
 .flash-dano   { animation: fDano .5s ease-out; }
 .flash-acerto { animation: fAcerto .45s ease-out; }
 .flash-falha  { animation: fFalha .4s ease-out; }
+.flash-cura   { animation: fCura .6s ease-out; }
 @keyframes fDano {
   0%   { opacity: 1; background: radial-gradient(circle at 50% 50%, rgba(255, 61, 36, .18), rgba(255, 61, 36, .40)); }
   100% { opacity: 0; }
@@ -690,6 +704,11 @@ li.log-info  { border-left-color: var(--base2); }
 }
 @keyframes fFalha {
   0%   { opacity: 1; background: rgba(147, 164, 184, .16); }
+  100% { opacity: 0; }
+}
+@keyframes fCura {
+  0%   { opacity: 1; background: radial-gradient(circle at 50% 50%, rgba(255, 197, 61, .14), rgba(47, 212, 160, .24)); }
+  60%  { opacity: .6; }
   100% { opacity: 0; }
 }
 
@@ -728,7 +747,888 @@ li.log-info  { border-left-color: var(--base2); }
   .guia-grid { grid-template-columns: 1fr; }
 }
 
-/* ---------- 14) Acessibilidade: movimento reduzido ---------- */
+/* ---------- 14) Arena de batalha (estilo Pokémon Champions) ---------- */
+
+.arena {
+  position: relative;
+  width: 100%;
+  height: 235px;
+  overflow: hidden;
+  border-radius: var(--raio);
+  border: 1px solid var(--linha);
+  box-shadow: 0 0 40px rgba(0, 0, 0, .55), inset 0 0 0 1px rgba(255,255,255,.04);
+  flex-shrink: 0;
+}
+
+/* Fundo: teto de laboratório escuro + chão em perspectiva */
+.arena-bg {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg,
+    #07101e 0%,
+    #0d1a35 42%,
+    #0a1a0c 44%,
+    #0d1e0f 100%);
+}
+
+/* Grid do chão em perspectiva */
+.arena-floor-grid {
+  position: absolute;
+  left: -20%; right: -20%;
+  top: 44%; bottom: -8%;
+  background:
+    repeating-linear-gradient(90deg,
+      rgba(255,255,255,.055) 0, rgba(255,255,255,.055) 1px,
+      transparent 1px, transparent 48px),
+    repeating-linear-gradient(0deg,
+      rgba(255,255,255,.055) 0, rgba(255,255,255,.055) 1px,
+      transparent 1px, transparent 48px);
+  transform: perspective(280px) rotateX(32deg);
+  transform-origin: 50% 0;
+}
+
+/* Glow da linha do horizonte */
+.arena-horizon-glow {
+  position: absolute;
+  left: 0; right: 0;
+  top: 42%;
+  height: 3px;
+  background: linear-gradient(90deg,
+    transparent 5%,
+    rgba(47, 212, 160, .28) 30%,
+    rgba(47, 212, 160, .50) 50%,
+    rgba(47, 212, 160, .28) 70%,
+    transparent 95%);
+  filter: blur(2px);
+}
+
+/* Ícones decorativos de lab no fundo */
+.lab-deco {
+  position: absolute;
+  font-size: 1.6rem;
+  opacity: .12;
+  filter: grayscale(1);
+  pointer-events: none;
+  user-select: none;
+}
+.ld1 { left: 8%;  top: 12%; transform: rotate(-15deg); }
+.ld2 { left: 48%; top: 8%;  transform: scale(.9); opacity: .08; }
+.ld3 { right: 8%; top: 14%; transform: rotate(12deg); }
+
+/* ── Wrappers de posicionamento dos personagens ── */
+.t-wrap {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.player-wrap {
+  left: 5%;
+  bottom: 4%;
+}
+
+.opp-wrap {
+  right: 5%;
+  top: 4%;
+  /* scale(0.80) para profundidade + scaleX(-1) para o sprite encarar o jogador */
+  transform: scale(0.80) scaleX(-1);
+  transform-origin: top center;
+}
+
+/* Pixel art: garante pixels nítidos sem anti-aliasing */
+img.sci {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  display: block;
+}
+
+/* Sombra no chão do personagem */
+.t-shadow {
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(0,0,0,.65), transparent 70%);
+  margin-top: -2px;
+}
+.player-shadow { width: 88px; height: 18px; }
+.opp-shadow    { width: 72px; height: 14px; }
+
+/* Layer de animação (pai direto do SVG) */
+.t-inner { display: block; transform-origin: bottom center; }
+
+/* SVG do cientista */
+.sci {
+  width: 88px;
+  height: auto;
+  display: block;
+  transform-origin: bottom center;
+  filter: drop-shadow(0 6px 10px rgba(0,0,0,.6));
+  animation: sci-idle 2.2s ease-in-out infinite;
+}
+
+/* ── Animações do personagem ── */
+
+/* REPOUSO: flutua suavemente */
+@keyframes sci-idle {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-5px); }
+}
+
+/* ATAQUE melhorado: 3 fases — antecipação (windup) → golpe → recuperação */
+@keyframes sci-attack {
+  0%   { transform: translateX(0)    translateY(0)     scale(1)    rotate(0deg); }
+  15%  { transform: translateX(4px)  translateY(-10px) scale(1.08) rotate(-8deg); }
+  45%  { transform: translateX(18px) translateY(-4px)  scale(1.06) rotate(6deg); }
+  68%  { transform: translateX(10px) translateY(-1px)  scale(1.02) rotate(2deg); }
+  100% { transform: translateX(0)    translateY(0)     scale(1)    rotate(0deg); }
+}
+
+/* CHARGE-UP: brilho pulsante antes de arremessar */
+@keyframes sci-charge {
+  0%   { filter: drop-shadow(0 6px 10px rgba(0,0,0,.6)); }
+  40%  { filter: brightness(1.7) drop-shadow(0 0 10px var(--char-color,#2fd4a0)); }
+  70%  { filter: brightness(2.0) drop-shadow(0 0 18px var(--char-color,#2fd4a0)); }
+  100% { filter: brightness(1.3) drop-shadow(0 0  5px var(--char-color,#2fd4a0)); }
+}
+
+/* DANO — movimento de recuo (mais suave, mola) */
+@keyframes sci-hurt-move {
+  0%   { transform: translateX(0); }
+  12%  { transform: translateX(-16px); }
+  28%  { transform: translateX(-10px); }
+  50%  { transform: translateX(-14px); }
+  70%  { transform: translateX(-5px); }
+  100% { transform: translateX(0); }
+}
+
+/* DANO — flash branco */
+@keyframes sci-hurt-flash {
+  0%, 100% { filter: drop-shadow(0 6px 10px rgba(0,0,0,.6)); }
+  10%  { filter: brightness(6) saturate(0) drop-shadow(0 0 14px white); }
+  28%  { filter: brightness(4) saturate(0) drop-shadow(0 0 8px white); }
+  50%  { filter: brightness(2) saturate(.1); }
+}
+
+/* VITÓRIA: pula de alegria */
+@keyframes sci-victory {
+  0%, 100% { transform: translateY(0)    rotate(0deg); }
+  30%       { transform: translateY(-22px) rotate(-8deg); }
+  60%       { transform: translateY(-10px) rotate(5deg); }
+}
+
+/* DERROTA: tomba */
+@keyframes sci-defeat {
+  0%   { transform: rotate(0deg)   translateY(0);   opacity: 1; }
+  50%  { transform: rotate(-24deg) translateY(10px); opacity: .7; }
+  100% { transform: rotate(-48deg) translateY(20px); opacity: .25; }
+}
+
+/* TREMOR DA ARENA ao tomar dano */
+@keyframes arena-tremer {
+  0%,100% { transform: translate(0,0); }
+  10% { transform: translate(-5px,  2px); }
+  20% { transform: translate( 5px, -3px); }
+  35% { transform: translate(-4px,  1px); }
+  50% { transform: translate( 4px, -2px); }
+  65% { transform: translate(-3px,  2px); }
+  80% { transform: translate( 2px, -1px); }
+  90% { transform: translate(-1px,  1px); }
+}
+.arena.tremendo { animation: arena-tremer 0.42s ease-out; }
+
+/* ONDA DE CHOQUE ao impacto */
+@keyframes ripple-ring {
+  0%   { transform: translate(-50%,-50%) scale(0); opacity: 1; }
+  60%  { opacity: .7; }
+  100% { transform: translate(-50%,-50%) scale(3); opacity: 0; }
+}
+.ripple-ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 3px solid;
+  pointer-events: none;
+  z-index: 13;
+  animation: ripple-ring 0.48s ease-out forwards;
+}
+
+/* Classes adicionadas por JS nos .t-wrap */
+.t-wrap.anim-charge .sci       { animation: sci-charge 0.38s ease-out; }
+.t-wrap.anim-attack .t-inner   { animation: sci-attack 0.55s ease-out; }
+.t-wrap.anim-attack .sci       { animation: none; }
+
+.t-wrap.anim-hurt .t-inner     { animation: sci-hurt-move  0.55s ease-out; }
+.t-wrap.anim-hurt .sci         { animation: sci-hurt-flash  0.55s ease-out; }
+
+.t-wrap.anim-victory .sci      { animation: sci-victory   0.72s ease-in-out 3; }
+.t-wrap.anim-defeat  .sci      { animation: sci-defeat    0.80s ease-out forwards; }
+
+/* ── Camada de efeitos (projéteis, explosões) ── */
+.arena-fx {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: visible;
+}
+
+/* Projétil */
+.proj-orb {
+  position: absolute;
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  z-index: 10;
+}
+.proj-orb.tipo-acido {
+  background: radial-gradient(circle at 40% 35%, #FF9A7A, #FF5A2A);
+  box-shadow: 0 0 12px #FF6A4D, 0 0 22px rgba(255,106,77,.55);
+}
+.proj-orb.tipo-base {
+  background: radial-gradient(circle at 40% 35%, #CE93FF, #7C4DFF);
+  box-shadow: 0 0 12px #7C4DFF, 0 0 22px rgba(124,77,255,.55);
+}
+.proj-orb.tipo-neutro {
+  background: radial-gradient(circle at 40% 35%, #FFE066, #FF9F00);
+  box-shadow: 0 0 16px #FFD600, 0 0 28px rgba(255,214,0,.55);
+}
+
+/* Rastro do projétil */
+.proj-trail {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  z-index: 9;
+}
+
+/* Explosão de impacto */
+.hit-explosion {
+  position: absolute;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 11;
+}
+.hit-explosion.tipo-acido {
+  width: 60px; height: 60px;
+  background: radial-gradient(circle, white 0%, #FF6A4D 35%, transparent 70%);
+  box-shadow: 0 0 30px #FF6A4D;
+  animation: boom .55s ease-out forwards;
+}
+.hit-explosion.tipo-base {
+  width: 60px; height: 60px;
+  background: radial-gradient(circle, white 0%, #7C4DFF 35%, transparent 70%);
+  box-shadow: 0 0 30px #7C4DFF;
+  animation: boom .55s ease-out forwards;
+}
+.hit-explosion.tipo-neutro {
+  width: 80px; height: 80px;
+  background: radial-gradient(circle, white 0%, #FFD600 28%, #2fd4a0 55%, transparent 80%);
+  box-shadow: 0 0 40px #FFD600;
+  animation: boom-neutra .72s ease-out forwards;
+}
+@keyframes boom {
+  0%   { transform: translate(-50%,-50%) scale(.15); opacity: 1; }
+  50%  { transform: translate(-50%,-50%) scale(1.4);  opacity: .9; }
+  100% { transform: translate(-50%,-50%) scale(2.2);  opacity: 0; }
+}
+@keyframes boom-neutra {
+  0%   { transform: translate(-50%,-50%) scale(.2)  rotate(0deg);   opacity: 1; }
+  40%  { transform: translate(-50%,-50%) scale(1.7)  rotate(30deg);  opacity: 1; }
+  100% { transform: translate(-50%,-50%) scale(2.9)  rotate(65deg);  opacity: 0; }
+}
+
+/* Partículas de respingo */
+.splash-p {
+  position: absolute;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 12;
+  animation: splash-fly .5s ease-out forwards;
+}
+@keyframes splash-fly {
+  from { transform: translate(-50%, -50%) scale(1);   opacity: 1; }
+  to   { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(.15); opacity: 0; }
+}
+
+/* Rótulo de nome do personagem na arena */
+.t-name {
+  position: absolute;
+  top: -18px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--f-display);
+  font-size: .62rem;
+  font-weight: 500;
+  white-space: nowrap;
+  color: var(--mudo);
+  letter-spacing: .05em;
+  pointer-events: none;
+}
+
+/* Arena menor em mobile */
+@media (max-width: 720px) {
+  .arena { height: 175px; }
+  .sci   { width: 70px; }
+  .player-wrap { left: 2%; }
+  .opp-wrap    { right: 2%; }
+}
+
+/* ---------- 15) HP Boxes sobrepostos na arena (estilo Pokémon DS) ---------- */
+
+.pkm-hp-box {
+  position: absolute;
+  z-index: 6;
+  background: linear-gradient(180deg, #f8f6e8 0%, #e8e2cc 100%);
+  border: 3px solid #1e1e1e;
+  border-radius: 8px 8px 14px 8px;
+  padding: 6px 10px 7px;
+  min-width: 155px;
+  box-shadow: 3px 3px 0 #1e1e1e, 0 0 0 1px rgba(255,255,255,.4) inset;
+  pointer-events: none;
+}
+.pkm-hp-box.opp-box {
+  top: 10px;
+  left: 10px;
+  min-width: 148px;
+}
+.pkm-hp-box.eu-box {
+  bottom: 10px;
+  right: 10px;
+}
+
+.pkm-box-name {
+  font-family: var(--f-display);
+  font-weight: 700;
+  font-size: .75rem;
+  letter-spacing: .04em;
+  color: #1a1a1a;
+  margin-bottom: 5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 140px;
+}
+.pkm-name-text { }
+
+.pkm-box-hp-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.pkm-hp-label {
+  font-family: var(--f-mono);
+  font-size: .6rem;
+  font-weight: 700;
+  color: #2a2020;
+  letter-spacing: .08em;
+  flex-shrink: 0;
+}
+.pkm-bar-wrap {
+  flex: 1;
+  height: 6px;
+  background: #3a3a3a;
+  border: 1px solid #1e1e1e;
+  border-radius: 3px;
+  overflow: hidden;
+}
+.pkm-bar-fill {
+  height: 100%;
+  width: 100%;
+  border-radius: 2px;
+  background: var(--neutro);
+  transition: width .5s ease, background-color .5s ease;
+}
+.pkm-bar-fill.baixo  { background: #ef5350; animation: hp-pulse .9s ease-in-out infinite; }
+.pkm-bar-fill.medio  { background: var(--ouro); }
+
+@keyframes hp-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: .55; }
+}
+
+.pkm-box-nums {
+  margin-top: 4px;
+  text-align: right;
+  font-family: var(--f-mono);
+  font-size: .72rem;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+.pkm-hp-max {
+  font-weight: 400;
+  color: #5a4a40;
+  font-size: .65rem;
+}
+
+/* Shake do box do jogador ao levar dano */
+#info-eu.shake { animation: shake .4s ease-out; }
+
+/* ---------- 16) Interface de batalha estilo Pokémon ---------- */
+
+.pkm-ui {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* ── Linha principal: dialog + botões ── */
+.pkm-bottom {
+  display: flex;
+  border: 3px solid #1e1e1e;
+  border-top: none;            /* encosta sem gap na arena */
+  border-radius: 0 0 12px 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 0 #1e1e1e;
+  background: #5a4830;
+  min-height: 128px;
+}
+
+/* CAIXA DE DIÁLOGO (esquerda) */
+.pkm-dialog {
+  flex: 1 1 58%;
+  background: linear-gradient(180deg, #f0edd8 0%, #e4e0c8 100%);
+  border-right: 3px solid #1e1e1e;
+  padding: 10px 14px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.pkm-msg {
+  font-family: var(--f-display);
+  font-size: .82rem;
+  font-weight: 600;
+  color: #1a1a1a;
+  min-height: 1.1em;
+  line-height: 1.35;
+}
+
+.pkm-hint {
+  font-size: .7rem;
+  color: #5a4a2a;
+  min-height: .9em;
+  line-height: 1.3;
+}
+
+.pkm-input-wrap {
+  margin-top: auto;
+}
+.pkm-input-wrap input {
+  width: 100%;
+  box-sizing: border-box;
+  background: #fff;
+  border: 2px solid #5a4a30;
+  border-radius: 4px;
+  padding: 5px 9px;
+  font-family: var(--f-mono);
+  font-size: .8rem;
+  color: #1a1a1a;
+  outline: none;
+}
+.pkm-input-wrap input:focus {
+  border-color: #2a5db0;
+  box-shadow: 0 0 0 3px rgba(42, 93, 176, .18);
+}
+.pkm-input-wrap input:disabled {
+  background: #e4e0c8;
+  color: #999;
+  cursor: not-allowed;
+}
+.pkm-input-wrap .erro-inline {
+  font-size: .68rem;
+  margin: 2px 0 0;
+  min-height: 1em;
+}
+
+/* BOTÕES DE AÇÃO 2×2 (direita) */
+.pkm-actions {
+  flex: 0 0 42%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 5px;
+  padding: 7px;
+  background: #4a3820;
+  align-content: stretch;
+}
+
+.pkm-btn {
+  font-family: var(--f-display);
+  font-size: .75rem;
+  font-weight: 700;
+  letter-spacing: .04em;
+  border-radius: 6px;
+  cursor: pointer;
+  padding: 6px 4px;
+  text-align: center;
+  color: #fff;
+  text-shadow: 1px 1px 0 rgba(0,0,0,.45);
+  transition: transform .07s, box-shadow .07s, filter .07s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  line-height: 1.2;
+}
+.pkm-btn:hover:not(:disabled)  { transform: translateY(-2px); filter: brightness(1.1); }
+.pkm-btn:active:not(:disabled) { transform: translateY(1px);  filter: brightness(.95); }
+.pkm-btn:disabled               { opacity: .4; cursor: not-allowed; }
+
+/* Bordas e gradientes por tipo (FIGHT / BAG / POKÉMON / RUN) */
+.pkm-fight {
+  background: linear-gradient(180deg, #f04060 0%, #b81830 100%);
+  border: 3px solid #780c18;
+  box-shadow: 0 3px 0 #780c18, inset 0 1px 0 rgba(255,255,255,.25);
+}
+.pkm-bag {
+  background: linear-gradient(180deg, #f0a020 0%, #b07000 100%);
+  border: 3px solid #784800;
+  box-shadow: 0 3px 0 #784800, inset 0 1px 0 rgba(255,255,255,.25);
+}
+.pkm-poke {
+  background: linear-gradient(180deg, #48c870 0%, #209040 100%);
+  border: 3px solid #0e5820;
+  box-shadow: 0 3px 0 #0e5820, inset 0 1px 0 rgba(255,255,255,.25);
+}
+.pkm-run {
+  background: linear-gradient(180deg, #3890f0 0%, #1058b8 100%);
+  border: 3px solid #083080;
+  box-shadow: 0 3px 0 #083080, inset 0 1px 0 rgba(255,255,255,.25);
+}
+
+/* ── Log de combate compacto ── */
+.pkm-log-strip {
+  max-height: 76px;
+  overflow-y: auto;
+  background: rgba(0,0,0,.18);
+  border: 1px solid var(--linha);
+  border-top: none;
+  scrollbar-width: thin;
+  scrollbar-color: var(--linha) transparent;
+}
+.pkm-log-strip::-webkit-scrollbar { width: 4px; }
+.pkm-log-strip::-webkit-scrollbar-thumb { background: var(--linha); border-radius: 2px; }
+
+#log-lista {
+  list-style: none;
+  margin: 0;
+  padding: 3px 8px;
+  display: flex;
+  flex-direction: column-reverse; /* último entrada no topo */
+}
+#log-lista li {
+  font-size: .7rem;
+  padding: 1.5px 0;
+  border-bottom: 1px solid rgba(255,255,255,.04);
+  display: flex;
+  gap: 6px;
+}
+#log-lista .log-hora {
+  color: var(--mudo);
+  flex-shrink: 0;
+  font-size: .62rem;
+}
+#log-lista .log-dano   span:last-child { color: #ef9090; }
+#log-lista .log-acerto span:last-child { color: #90efb8; }
+#log-lista .log-neutra span:last-child { color: var(--ouro); }
+#log-lista .log-falha  span:last-child { color: var(--mudo); }
+#log-lista .log-info   span:last-child { color: #90c8ff; }
+
+/* ── Painel popup: compostos usados ── */
+.painel-usadas {
+  background: var(--superfície);
+  border: 1px solid var(--linha);
+  border-top: none;
+  padding: 8px 10px;
+}
+.painel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: .76rem;
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: var(--texto);
+}
+
+/* ── Rodapé mini ── */
+.pkm-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 10px;
+  font-size: .7rem;
+  border-top: 1px solid var(--linha);
+  color: var(--mudo);
+}
+
+/* Responsivo: telas estreitas */
+@media (max-width: 640px) {
+  .pkm-bottom   { flex-direction: column; min-height: auto; }
+  .pkm-dialog   { border-right: none; border-bottom: 3px solid #1e1e1e; }
+  .pkm-actions  { grid-template-columns: repeat(4, 1fr); grid-template-rows: 1fr; padding: 5px; gap: 4px; }
+  .pkm-btn      { font-size: .68rem; padding: 8px 2px; }
+  .pkm-hp-box   { min-width: 120px; }
+  .pkm-box-name { font-size: .68rem; max-width: 108px; }
+}
+
+/* ---------- 18) Tela de seleção de personagem ---------- */
+
+#screen-selecao {
+  gap: 0;
+  overflow-y: auto;
+}
+.sel-header {
+  text-align: center;
+  padding: 1.2rem 1rem .6rem;
+  flex-shrink: 0;
+}
+.sel-header h2 { margin-bottom: .3rem; }
+
+/* Grade de cards — 3 colunas no desktop, 2 no tablet, 1 no mobile */
+.sel-chars {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: .6rem;
+  padding: .5rem 1rem;
+  flex: 1;
+  align-content: start;
+}
+@media (max-width: 720px) { .sel-chars { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 420px) { .sel-chars { grid-template-columns: 1fr; } }
+
+/* Card de personagem — versão compacta para 12 personagens */
+.sel-card {
+  background: var(--superfície);
+  border: 2px solid var(--linha);
+  border-radius: var(--raio);
+  padding: .55rem .6rem;
+  cursor: pointer;
+  display: flex;
+  gap: .5rem;
+  transition: border-color .18s, box-shadow .18s, transform .1s;
+  user-select: none;
+}
+.sel-card:hover { border-color: var(--primário); transform: translateY(-2px); }
+.sel-card.selected {
+  border-color: var(--ouro);
+  box-shadow: 0 0 0 3px rgba(255,197,61,.35), 0 4px 16px rgba(255,197,61,.2);
+  transform: translateY(-3px);
+}
+.sel-card.confirmado { opacity: .55; pointer-events: none; }
+
+.sel-avatar {
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.25rem;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(0,0,0,.4);
+}
+
+/* Miniatura pixel art na tela de seleção */
+.sel-sprite-mini {
+  width: 48px;
+  height: 96px;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  flex-shrink: 0;
+  display: block;
+  filter: drop-shadow(0 2px 6px rgba(0,0,0,.5));
+}
+
+.sel-info { flex: 1; min-width: 0; }
+.sel-nome { display: block; font-family: var(--f-display); font-size: .85rem; font-weight: 700; color: var(--texto); }
+.sel-sub  { display: block; font-size: .68rem; color: var(--mudo); margin-bottom: .4rem; }
+.sel-desc { font-size: .66rem; color: var(--mudo); margin-bottom: .5rem; line-height: 1.35; display: none; }
+.sel-card.selected .sel-desc { display: block; color: var(--texto); }
+
+/* Mini-chips dos 8 movimentos na seleção */
+.sel-moves-mini {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+.sel-chip {
+  font-size: .58rem;
+  padding: 1px 5px;
+  border-radius: 3px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  white-space: nowrap;
+  border: 1px solid rgba(255,255,255,.1);
+}
+.sel-chip.acido { background: rgba(255,100,60,.18); color: #FF8866; border-color: rgba(255,100,60,.3); }
+.sel-chip.base  { background: rgba(124,77,255,.18); color: #BB88FF; border-color: rgba(124,77,255,.3); }
+.sel-chip-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+
+/* Footer da seleção */
+.sel-footer {
+  padding: .75rem 1rem 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .5rem;
+  border-top: 1px solid var(--linha);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+.sel-opp-status {
+  width: 100%;
+  text-align: center;
+  font-size: .75rem;
+  color: var(--neutro);
+  min-height: 1.1em;
+}
+.btn.large { padding: .7rem 2rem; font-size: .95rem; }
+
+/* ---------- 19) Grade de movimentos (estilo Pokémon FireRed) ---------- */
+
+/* Wrapper do modo de movimentos — ocupa todo o pkm-actions */
+.move-grid-container {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  gap: 4px;
+  padding: 5px;
+}
+
+/* Grade 4×2 de movimentos */
+.move-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: 1fr 1fr;
+  gap: 4px;
+  flex: 1;
+}
+@media (max-width: 640px) {
+  .move-grid { grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(4, 1fr); }
+}
+
+/* Botão de movimento individual */
+.move-btn {
+  background: linear-gradient(180deg, #1e2a3e 0%, #131a28 100%);
+  border: 2px solid #2a3a54;
+  border-radius: 5px;
+  cursor: pointer;
+  padding: 4px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  align-items: flex-start;
+  text-align: left;
+  color: #e8f0ff;
+  transition: border-color .1s, background .1s, transform .08s;
+  min-width: 0;
+  position: relative;
+  overflow: hidden;
+}
+.move-btn:hover:not(:disabled) {
+  border-color: #7ab0ff;
+  background: linear-gradient(180deg, #1e3055 0%, #142244 100%);
+  transform: translateY(-1px);
+}
+.move-btn:active:not(:disabled) { transform: translateY(0); }
+.move-btn:disabled { opacity: .38; cursor: not-allowed; }
+.move-btn.usada { opacity: .28; filter: grayscale(.9); }
+
+/* Borda esquerda colorida por categoria */
+.move-btn.acido { border-left: 4px solid #FF6A4D; }
+.move-btn.base  { border-left: 4px solid #9C6DFF; }
+
+/* Nome do composto */
+.move-name {
+  font-family: var(--f-display);
+  font-size: .62rem;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+/* Ícone de tipo (canto superior direito) */
+.move-tipo-icon {
+  position: absolute;
+  top: 3px; right: 4px;
+  font-size: .7rem;
+  opacity: .7;
+}
+
+/* Barra de pH — o coração visual do FireRed mode */
+.move-ph-bar {
+  position: relative;
+  width: 100%;
+  height: 5px;
+  border-radius: 3px;
+  overflow: visible;
+  margin-top: auto;
+}
+.move-ph-gradient {
+  position: absolute;
+  inset: 0;
+  border-radius: 3px;
+  /* Escala de pH real: vermelho (0) → laranja → amarelo → verde (7) → azul → índigo → violeta (14) */
+  background: linear-gradient(90deg,
+    #FF0000 0%, #FF4400 7%, #FF7700 14%, #FFAA00 21%,
+    #DDCC00 28%, #AACC00 35%,
+    #00AA00 50%,
+    #00AACC 57%, #0088FF 64%, #4455FF 71%,
+    #8833FF 78%, #AA00FF 85%, #CC00CC 100%);
+  border: 1px solid rgba(255,255,255,.15);
+}
+/* Marcador branco na posição do pH do composto */
+.move-ph-marker {
+  position: absolute;
+  top: -3px;
+  width: 3px; height: 11px;
+  background: white;
+  border-radius: 2px;
+  box-shadow: 0 0 4px rgba(255,255,255,.8), 0 0 8px rgba(255,255,255,.4);
+  transform: translateX(-50%);
+  z-index: 2;
+}
+
+/* Botão VOLTAR (no move-grid-container) */
+.pkm-back-btn {
+  background: linear-gradient(180deg, #3a3a3a 0%, #222 100%);
+  border: 2px solid #555;
+  font-size: .7rem;
+  padding: 4px 8px;
+  color: #ddd;
+  flex-shrink: 0;
+}
+.pkm-back-btn:hover { background: linear-gradient(180deg, #555 0%, #333 100%); }
+
+/* action-btns: herda o layout original 2×2 */
+.action-btns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 5px;
+  width: 100%;
+  height: 100%;
+}
+
+/* Aura de cor do personagem na arena (shadow colorida no wrapper) */
+.t-wrap { --char-color: #2fd4a0; }
+.player-wrap .t-shadow.player-shadow {
+  background: radial-gradient(ellipse at center,
+    color-mix(in srgb, var(--char-color) 50%, rgba(0,0,0,0.5)) 0%,
+    transparent 70%);
+}
+.opp-wrap .t-shadow.opp-shadow {
+  background: radial-gradient(ellipse at center,
+    color-mix(in srgb, var(--char-color) 50%, rgba(0,0,0,0.5)) 0%,
+    transparent 70%);
+}
+
+/* ---------- 20) Acessibilidade: movimento reduzido ---------- */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation: none !important;
