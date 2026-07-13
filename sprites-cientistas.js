@@ -16,7 +16,6 @@
  *   • Priestley — peruca branca simples de clérigo anglicano, óculos redondos pequenos
  *   • Arrhenius — cabelo LOIRO sueco, óculos redondos, bigodinho fino claro
  */
-
 /* ─── PALETA BASE ─── */
 const P = {
   S:'#F4C5A0', D:'#D09070', E:'#1A1A2E',
