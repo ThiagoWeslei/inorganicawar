@@ -58,7 +58,7 @@
       <ul>
         <li>Digite o nome de um <b>ácido</b> ou de uma <b>base</b> válidos para atacar (sem se preocupar com acentos ou maiúsculas).</li>
         <li>Dano por dificuldade do composto: <b class="tag-facil">Fácil 10</b> · <b class="tag-medio">Médio 15</b> · <b class="tag-dificil">Difícil 20</b>.</li>
-        <li><b class="grad">Neutralização:</b> responda um ácido com uma base (ou vice-versa) e cause <b>×1,5 de dano</b> — ácido + base → sal + água!</li>
+        <li><b class="grad">Neutralização:</b> responda um ácido com uma base (ou vice-versa) → dano <b>×1,5</b> <em>e</em> você recupera <b>30 % do dano base</b> em HP 💚 — ácido + base → sal + água!</li>
         <li>Composto inválido = <b>ataque falhou</b> (0 de dano e você perde o turno).</li>
         <li>Você <b>não pode repetir</b> um composto que já usou na partida.</li>
         <li>Vence quem zerar os <b>100 HP</b> do oponente.</li>
@@ -81,54 +81,161 @@
     </section>
   </main>
 
+  <!-- ============ TELA: SELEÇÃO DE PERSONAGEM ============ -->
+  <main id="screen-selecao" class="screen">
+    <header class="sel-header">
+      <h2 class="grad">⚗️ Escolha seu Cientista</h2>
+      <p class="hint">Cada personagem tem 8 compostos exclusivos.<br>A escala de pH mostra o poder — sem valores numéricos de dano.</p>
+    </header>
+
+    <!-- Cards dos personagens — populados por montarCardsPersonagem() -->
+    <div class="sel-chars" id="sel-chars"></div>
+
+    <footer class="sel-footer">
+      <p id="sel-opp-status" class="sel-opp-status" aria-live="polite"></p>
+      <button id="btn-confirmar-sel" class="btn primary large" type="button" disabled>
+        ✔ CONFIRMAR PERSONAGEM
+      </button>
+      <button id="btn-cancelar-sel" class="btn ghost" type="button" style="margin-left:.5rem">
+        ✕ Cancelar
+      </button>
+    </footer>
+  </main>
+
   <!-- ============ TELA: BATALHA ============ -->
   <main id="screen-batalha" class="screen">
 
-    <div class="versus-grid">
-      <section class="player-card me" id="card-eu">
-        <div class="p-head"><span class="avatar" aria-hidden="true">🧪</span><h3 id="nome-eu">Você</h3></div>
-        <div class="hp-row"><span class="hp-num" id="hp-eu-num">100</span><span class="hp-max">/ 100 HP</span></div>
-        <div class="hp-bar"><div class="hp-fill" id="hp-eu-fill"></div></div>
-      </section>
+  <!-- ============ ARENA DE BATALHA (estilo Pokémon Champions) ============ -->
+  <div id="arena" class="arena" aria-hidden="true">
 
-      <div class="ph-divider" aria-hidden="true"><span class="vs-badge">VS</span></div>
-
-      <section class="player-card opp" id="card-opp">
-        <div class="p-head"><span class="avatar" aria-hidden="true">⚗️</span><h3 id="nome-opp">Oponente</h3></div>
-        <div class="hp-row"><span class="hp-num" id="hp-opp-num">100</span><span class="hp-max">/ 100 HP</span></div>
-        <div class="hp-bar"><div class="hp-fill" id="hp-opp-fill"></div></div>
-        <div class="dmg-layer" id="dmg-layer" aria-hidden="true"></div>
-      </section>
+    <!-- Fundo: teto escuro do lab + chão em perspectiva -->
+    <div class="arena-bg">
+      <div class="arena-floor-grid"></div>
+      <div class="arena-horizon-glow"></div>
+      <!-- Decoração de fundo: equipamentos de lab -->
+      <span class="lab-deco ld1" aria-hidden="true">⚗</span>
+      <span class="lab-deco ld2" aria-hidden="true">🧬</span>
+      <span class="lab-deco ld3" aria-hidden="true">⚗</span>
     </div>
 
-    <div id="turno-banner" class="turno" aria-live="polite">Preparando…</div>
-    <p id="dica-neutra" class="dica" aria-live="polite"></p>
-
-    <div class="ataque-zone">
-      <input id="input-ataque" type="text" maxlength="40" placeholder="Digite um ácido ou base… (ex.: Ácido Sulfúrico)" autocomplete="off" spellcheck="false" aria-label="Nome do composto para atacar">
-      <button id="btn-ataque" class="btn primary" type="button">⚡ Atacar</button>
-    </div>
-    <p id="erro-ataque" class="erro-inline" aria-live="polite"></p>
-
-    <div class="batalha-grid">
-      <section class="card log-card">
-        <h4>📖 Log de combate</h4>
-        <ul id="log-lista" aria-live="polite"></ul>
-      </section>
-      <aside class="card side-card">
-        <h4>🚫 Compostos que você já usou</h4>
-        <div id="palavras-usadas" class="chips"><span class="hint">Nenhum ainda.</span></div>
-        <button id="btn-guia" class="btn secondary" type="button">📚 Guia de compostos</button>
-      </aside>
-    </div>
-
-    <footer class="batalha-footer">
-      <span class="hint">Sala: <code id="sala-atual">—</code></span>
-      <div class="row">
-        <button id="btn-som" class="btn ghost" type="button" title="Ativar ou silenciar efeitos sonoros">🔊</button>
-        <button id="btn-sair" class="btn danger-ghost" type="button">Sair da partida</button>
+    <!-- ─── OPONENTE (canto superior direito, design espelhado) ─── -->
+    <div class="t-wrap opp-wrap" id="anim-opp">
+      <div class="t-inner" id="ti-opp">
+        <!-- Cientista oponente: cabelo branco, óculos vermelhos, frasco roxo (base OH⁻)
+             Desenhado explicitamente com braço ESQUERDO levantado → enfrenta o jogador. -->
+        <img class="sci" id="sci-opp" style="image-rendering:pixelated;display:block" alt="sprite oponente" width="88">
       </div>
-    </footer>
+      <div class="t-shadow opp-shadow"></div>
+    </div>
+
+    <!-- ─── JOGADOR (canto inferior esquerdo, design normal) ─── -->
+    <div class="t-wrap player-wrap" id="anim-player">
+      <div class="t-inner" id="ti-player">
+        <!-- Cientista jogador: cabelo escuro, óculos azuis, frasco laranja (ácido H⁺)
+             Braço direito levantado → enfrenta o oponente à direita. -->
+        <img class="sci" id="sci-player" style="image-rendering:pixelated;display:block" alt="sprite jogador" width="88">
+      </div>
+      <div class="t-shadow player-shadow"></div>
+    </div>
+
+    <!-- ── HP Info Boxes sobrepostos na arena (estilo Pokémon DS) ── -->
+
+    <!-- Oponente: canto superior esquerdo -->
+    <div id="info-opp" class="pkm-hp-box opp-box">
+      <div class="pkm-box-name">
+        <span id="nome-opp" class="pkm-name-text">Oponente</span>
+      </div>
+      <div class="pkm-box-hp-row">
+        <span class="pkm-hp-label">HP</span>
+        <div class="pkm-bar-wrap">
+          <div class="pkm-bar-fill" id="hp-opp-fill"></div>
+        </div>
+      </div>
+      <span id="hp-opp-num" style="display:none" aria-hidden="true">100</span>
+      <div class="dmg-layer" id="dmg-layer" aria-hidden="true"></div>
+    </div>
+
+    <!-- Jogador: canto inferior direito -->
+    <div id="info-eu" class="pkm-hp-box eu-box">
+      <div class="pkm-box-name">
+        <span id="nome-eu" class="pkm-name-text">Você</span>
+      </div>
+      <div class="pkm-box-hp-row">
+        <span class="pkm-hp-label">HP</span>
+        <div class="pkm-bar-wrap">
+          <div class="pkm-bar-fill" id="hp-eu-fill"></div>
+        </div>
+      </div>
+      <div class="pkm-box-nums">
+        <span id="hp-eu-num">100</span><span class="pkm-hp-max">/100</span>
+      </div>
+      <div class="cura-layer" id="cura-layer" aria-hidden="true"></div>
+    </div>
+
+    <!-- Camada de efeitos dinâmicos (projéteis, explosões, partículas) -->
+    <div id="arena-fx" class="arena-fx" aria-hidden="true"></div>
+  </div>
+  <!-- ══════════════════════════════════════════════════════
+       INTERFACE DE BATALHA — estilo Pokémon Champions
+  ══════════════════════════════════════════════════════ -->
+  <div class="pkm-ui">
+
+    <!-- ── LINHA PRINCIPAL: dialog (esq) + botões de ação (dir) ── -->
+    <div class="pkm-bottom">
+
+        <div class="pkm-dialog" id="pkm-dialog">
+          <p id="turno-banner" class="pkm-msg" aria-live="polite">Preparando…</p>
+          <p id="dica-neutra"  class="pkm-hint" aria-live="polite"></p>
+          <!-- input mantido oculto — usado internamente por atacar() como fallback -->
+          <input id="input-ataque" type="text" maxlength="40" autocomplete="off"
+                 spellcheck="false" aria-hidden="true" tabindex="-1"
+                 style="position:absolute;opacity:0;pointer-events:none;width:1px;height:1px">
+          <p id="erro-ataque" class="erro-inline" aria-live="polite"></p>
+        </div>
+
+      <!-- Botões de ação 2×2 / Grade de movimentos FireRed -->
+      <div class="pkm-actions" id="pkm-actions">
+
+        <!-- MODO NORMAL: FIGHT / BAG / POKÉMON / RUN -->
+        <div id="action-btns" class="action-btns">
+          <button id="btn-ataque"        class="pkm-btn pkm-fight" type="button">⚔️ LUTAR</button>
+          <button id="btn-guia"          class="pkm-btn pkm-bag"   type="button">📖 GUIA</button>
+          <button id="btn-usadas-toggle" class="pkm-btn pkm-poke"  type="button">🔬 USADAS</button>
+          <button id="btn-sair"          class="pkm-btn pkm-run"   type="button">🚪 SAIR</button>
+        </div>
+
+        <!-- MODO MOVIMENTOS: grade 4×2 de compostos (estilo FireRed) -->
+        <div id="move-grid-container" class="move-grid-container" hidden>
+          <div id="move-grid" class="move-grid">
+            <!-- 8 move buttons populados por renderizarMoveGrid() -->
+          </div>
+          <button id="btn-back-moves" class="pkm-btn pkm-back-btn" type="button">← VOLTAR</button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Log de combate compacto (role para ver o histórico) -->
+    <div class="pkm-log-strip">
+      <ul id="log-lista" aria-live="polite"></ul>
+    </div>
+
+    <!-- Painel popup: compostos usados (aparece ao clicar em USADAS) -->
+    <div id="painel-usadas" class="painel-usadas" hidden>
+      <div class="painel-header">
+        <span>🔬 Compostos usados nesta partida</span>
+        <button id="btn-fechar-usadas" class="btn ghost" type="button" style="font-size:.7rem;padding:.15rem .5rem">✕</button>
+      </div>
+      <div id="palavras-usadas" class="chips"><span class="hint">Nenhum ainda.</span></div>
+    </div>
+
+    <!-- Rodapé mini: código da sala + botão de som -->
+    <div class="pkm-footer">
+      <span class="hint">Sala: <code id="sala-atual">—</code></span>
+      <button id="btn-som" class="btn ghost" type="button" title="Ativar ou silenciar som">🔊</button>
+    </div>
+
+  </div>
   </main>
 
   <!-- ============ OVERLAY: FIM DE JOGO ============ -->
@@ -156,6 +263,7 @@
     </div>
   </div>
 
+  <script src="sprites-cientistas.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.2/peerjs.min.js"></script>
   <script src="script.js"></script>
 </body>
